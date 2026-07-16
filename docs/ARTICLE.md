@@ -11,7 +11,7 @@
 
 Last weekend's challenge was about apps you open, paste into, and get something back from. This one flips it: build something that does the work on its own. That reframing is the whole point of DayBreak. There's no app to launch and no button to press. **Amazon EventBridge Scheduler fires the agent at 6 AM** in my timezone, and by the time I'm awake the result is waiting.
 
-When it wakes, the agent gathers my day: today's weather for my location, my open tasks (with overdue and due-today surfaced first), any conversation threads that have gone quiet past a staleness threshold, and — optionally — a few news headlines. It then reasons over all of it with Amazon Bedrock and composes a **structured brief**: a one-line greeting, the weather in plain terms, my top priorities with *why each matters today*, my schedule, and short, paste-ready follow-up drafts for the stale threads. It reports back by emailing me a clean HTML brief and storing the record in DynamoDB. A read-only web link always shows the latest brief.
+When it wakes, the agent gathers my day: today's weather for my location, my open tasks (with overdue and due-today surfaced first), any conversation threads that have gone quiet past a staleness threshold, and — optionally — a few news headlines. It then reasons over all of it with Amazon Bedrock and composes a **structured brief**: a one-line greeting, the weather in plain terms, my top priorities with *why each matters today*, my schedule, and short, paste-ready follow-up drafts for the stale threads. It reports back by emailing me a clean HTML brief and storing the record in DynamoDB. A React dashboard shows brief history and search, while settings and test-run controls are protected behind an admin token so the public showcase link stays safe.
 
 The problem it solves is the ten scattered minutes every morning spent reconstructing "what actually matters today" from four different places. DayBreak does that reconstruction overnight so the day starts already triaged.
 
@@ -51,7 +51,7 @@ I also got hands-on with Bedrock's **Converse tool-use loop** for the first time
 
 ## Link to App or Repo
 
-- **Live viewer** (latest brief, read-only): *paste the `ViewerUrl` stack output here.*
+- **Live dashboard** (brief history and latest brief): *paste the `ViewerUrl` stack output here.*
 - **Source code:** *paste your public GitHub repo link here.*
 
 *Word count: ~780 (excludes captions and code). Built and deployed over one weekend on the AWS Free Tier.*

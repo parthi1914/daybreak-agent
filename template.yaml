@@ -46,6 +46,11 @@ Parameters:
   StaleAfterDays:
     Type: String
     Default: "3"
+  DashboardAdminToken:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: Optional token required for dashboard settings updates and manual test runs. Leave blank to disable write actions.
 
 Globals:
   Function:
@@ -262,14 +267,14 @@ Resources:
         DeadLetterConfig:
           Arn: !GetAtt AgentDLQ.Arn
 
-  # ---- Optional read-only viewer ------------------------------------------
+  # ---- Optional dashboard / viewer ----------------------------------------
   ViewerFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: daybreak-viewer
       CodeUri: src/
       Handler: agent.viewer.lambda_handler
-      Description: Serves the latest stored brief as an HTML page.
+      Description: Serves the DayBreak React dashboard and lightweight JSON API.
       MemorySize: 256
       Timeout: 15
       Environment:
@@ -277,16 +282,31 @@ Resources:
           BRIEFS_TABLE: !Ref BriefsTable
           USER_ID: !Ref UserId
           USER_NAME: !Ref UserName
+          CONFIG_PARAM: /daybreak/config
+          AGENT_FUNCTION_NAME: !Ref AgentFunction
+          DASHBOARD_ADMIN_TOKEN: !Ref DashboardAdminToken
       FunctionUrlConfig:
         AuthType: NONE
         Cors:
           AllowOrigins: ["*"]
-          AllowMethods: [GET]
+          AllowMethods: [GET, POST, PUT]
+          AllowHeaders: [Content-Type, x-daybreak-admin-token]
       Policies:
         - Statement:
-            - Effect: Allow
+            - Sid: ReadBriefHistory
+              Effect: Allow
               Action: [dynamodb:Query]
               Resource: !GetAtt BriefsTable.Arn
+            - Sid: ManageRuntimeConfig
+              Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:PutParameter
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/daybreak/config"
+            - Sid: QueueManualAgentRun
+              Effect: Allow
+              Action: [lambda:InvokeFunction]
+              Resource: !GetAtt AgentFunction.Arn
 
   # ---- Alarms --------------------------------------------------------------
   AgentErrorAlarm:
@@ -373,7 +393,7 @@ Outputs:
   AgentFunctionName:
     Value: !Ref AgentFunction
   ViewerUrl:
-    Description: Public link to the latest brief (use as the submission app link).
+    Description: Public link to the DayBreak dashboard (use as the submission app link).
     Value: !GetAtt ViewerFunctionUrl.FunctionUrl
   TasksTableName:
     Value: !Ref TasksTable

@@ -13,7 +13,7 @@ Every morning the agent:
 1. **Wakes on a schedule** — EventBridge Scheduler fires at 6 AM in your timezone. No human in the loop.
 2. **Gathers your day** — it calls tools for today's weather, your open tasks (overdue and due-today first), threads that have gone stale, and optional news headlines.
 3. **Reasons and composes** — Bedrock Nova runs a tool-use loop: it decides which tools to call, reads the results, then writes a structured brief including short, paste-ready follow-up drafts for stale threads.
-4. **Reports back** — it emails a clean HTML brief via SES and stores the record in DynamoDB. A read-only Function URL shows the latest brief on the web.
+4. **Reports back** — it emails a clean HTML brief via SES and stores the record in DynamoDB. A Function URL serves a React dashboard for brief history, search, and admin-gated operations.
 
 It's an *agent*, not a script: Nova chooses which tools to call each morning based on what data exists, rather than following a fixed sequence.
 
@@ -29,7 +29,7 @@ It's an *agent*, not a script: Nova chooses which tools to call each morning bas
 | Delivery | Amazon SES |
 | Reliability | SQS dead-letter queue, Scheduler retries, Powertools idempotency |
 | Observability | CloudWatch alarms → SNS email, dashboard, X-Ray tracing, EMF metrics |
-| Viewer | Lambda Function URL (read-only) |
+| Dashboard | Lambda Function URL serving a React console and JSON API |
 
 Everything is defined in `template.yaml` (AWS SAM) with least-privilege IAM scoped per action.
 
@@ -42,7 +42,7 @@ src/agent/
   tools.py        The tools Nova can call (weather, tasks, stale threads, headlines)
   renderer.py     Brief -> HTML + plain-text email
   delivery.py     SES send + DynamoDB persistence
-  viewer.py       Read-only "latest brief" Function URL handler
+  viewer.py       React dashboard + JSON API Function URL handler
   config.py       SSM + env config loader
   models.py       Typed Brief / PriorityItem / FollowUp
 template.yaml     SAM: scheduler, Lambda, tables, SES, DLQ, alarms, dashboard, IAM
@@ -78,7 +78,13 @@ Then:
    ```
 4. **Watch it fire on its own** — the schedule runs daily; the CloudWatch dashboard (`DayBreak`) shows briefs sent, tools used, and DLQ depth.
 
-The stack outputs a **Viewer URL** (the latest brief as a web page) you can use as the submission's app link.
+The stack outputs a **Viewer URL** for the React dashboard, which you can use as the submission's app link.
+
+Optional dashboard controls:
+
+- Public users can view and search stored brief history.
+- Set `DashboardAdminToken` during deploy to enable settings updates and queued test runs from the dashboard.
+- Leave `DashboardAdminToken` blank to keep write actions disabled for a public showcase link.
 
 ## Develop and test locally
 

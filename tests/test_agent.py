@@ -12,6 +12,7 @@ from agent.config import RuntimeConfig, UserProfile  # noqa: E402
 from agent.models import Brief  # noqa: E402
 from agent.renderer import render_html, render_text, subject_line  # noqa: E402
 from agent.tools import get_stale_followups, get_tasks  # noqa: E402
+from agent.viewer import _matches_search, lambda_handler as viewer_handler  # noqa: E402
 
 
 class _FakeTable:
@@ -143,3 +144,43 @@ def test_tools_use_scheduled_run_date(monkeypatch):
     assert tasks[0]["state"] == "due_today"
     assert stale["cutoff"] == "2026-07-15"
     assert [item["taskId"] for item in stale["stale"]] == ["old"]
+
+
+def test_viewer_search_matches_nested_brief_content():
+    brief = {
+        "greeting": "Good morning",
+        "priorities": [{"title": "Ship launch checklist"}],
+        "follow_ups": [{"subject": "Vendor SOC2", "draft": "Any update?"}],
+    }
+    assert _matches_search(brief, "launch")
+    assert _matches_search(brief, "soc2")
+    assert not _matches_search(brief, "quarterly")
+
+
+def test_viewer_config_requires_admin_token(monkeypatch):
+    monkeypatch.setattr("agent.viewer._ADMIN_TOKEN", "secret")
+    event = {
+        "rawPath": "/api/config",
+        "requestContext": {"http": {"method": "GET"}},
+        "headers": {},
+    }
+
+    resp = viewer_handler(event, None)
+
+    assert resp["statusCode"] == 401
+    assert "admin_token_required" in resp["body"]
+
+
+def test_viewer_config_disabled_without_admin_token(monkeypatch):
+    monkeypatch.setattr("agent.viewer._ADMIN_TOKEN", "")
+    event = {
+        "rawPath": "/api/run",
+        "requestContext": {"http": {"method": "POST"}},
+        "headers": {},
+        "body": "{}",
+    }
+
+    resp = viewer_handler(event, None)
+
+    assert resp["statusCode"] == 403
+    assert "admin_disabled" in resp["body"]
