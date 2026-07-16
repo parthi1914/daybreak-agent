@@ -1,0 +1,385 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  DayBreak - an always-on, schedule-triggered AI morning-brief agent.
+  EventBridge Scheduler -> Lambda (Bedrock Nova tool-use agent) -> SES email + DynamoDB,
+  with idempotency, a dead-letter queue, alarms, and a CloudWatch dashboard.
+
+Parameters:
+  UserId:
+    Type: String
+    Default: default
+    Description: Logical id for the person this agent serves (partition key).
+  UserName:
+    Type: String
+    Default: there
+  SenderEmail:
+    Type: String
+    Description: Verified SES sender address. A verification email is sent on deploy.
+  RecipientEmail:
+    Type: String
+    Description: Where the brief is delivered. Must also be verified while SES is in sandbox.
+  AlarmEmail:
+    Type: String
+    Description: Address that receives operational alarms.
+  ScheduleCron:
+    Type: String
+    Default: "cron(0 6 * * ? *)"
+    Description: When the agent wakes (Scheduler cron). Default 06:00 daily.
+  ScheduleTimezone:
+    Type: String
+    Default: America/New_York
+  Latitude:
+    Type: String
+    Default: "33.749"
+  Longitude:
+    Type: String
+    Default: "-84.388"
+  NewsFeedUrl:
+    Type: String
+    Default: ""
+    Description: Optional RSS feed for headlines.
+  ModelId:
+    Type: String
+    Default: us.amazon.nova-lite-v1:0
+    Description: Bedrock model or cross-region inference profile id.
+  StaleAfterDays:
+    Type: String
+    Default: "3"
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 120
+    MemorySize: 512
+    Tracing: Active
+    Architectures: [arm64]
+    Environment:
+      Variables:
+        POWERTOOLS_SERVICE_NAME: daybreak
+        POWERTOOLS_METRICS_NAMESPACE: DayBreak
+        POWERTOOLS_LOG_LEVEL: INFO
+        LOG_LEVEL: INFO
+
+Resources:
+
+  # ---- Data stores --------------------------------------------------------
+  TasksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: daybreak-tasks
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: userId, AttributeType: S }
+        - { AttributeName: taskId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: userId, KeyType: HASH }
+        - { AttributeName: taskId, KeyType: RANGE }
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  BriefsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: daybreak-briefs
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: userId, AttributeType: S }
+        - { AttributeName: date, AttributeType: S }
+      KeySchema:
+        - { AttributeName: userId, KeyType: HASH }
+        - { AttributeName: date, KeyType: RANGE }
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  IdempotencyTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: daybreak-idempotency
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: id, KeyType: HASH }
+      TimeToLiveSpecification:
+        AttributeName: expiration
+        Enabled: true
+
+  # ---- Config (editable without redeploy) ---------------------------------
+  ConfigParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /daybreak/config
+      Type: String
+      Value: !Sub |
+        {
+          "user_id": "${UserId}",
+          "name": "${UserName}",
+          "timezone": "${ScheduleTimezone}",
+          "latitude": ${Latitude},
+          "longitude": ${Longitude},
+          "recipient_email": "${RecipientEmail}",
+          "sender_email": "${SenderEmail}",
+          "news_feed_url": "${NewsFeedUrl}",
+          "stale_after_days": ${StaleAfterDays},
+          "max_tasks_in_brief": 6,
+          "tone": "warm, concise, and encouraging"
+        }
+
+  # ---- Identity for outbound mail -----------------------------------------
+  SenderIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref SenderEmail
+
+  # ---- Dead-letter queue for missed runs ----------------------------------
+  AgentDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: daybreak-agent-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+
+  # ---- Operational alarms --------------------------------------------------
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: daybreak-alarms
+
+  AlarmSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlarmTopic
+      Protocol: email
+      Endpoint: !Ref AlarmEmail
+
+  # ---- The agent -----------------------------------------------------------
+  AgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: daybreak-agent
+      CodeUri: src/
+      Handler: agent.app.lambda_handler
+      Description: Composes and delivers the daily brief.
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt AgentDLQ.Arn
+      Environment:
+        Variables:
+          MODEL_ID: !Ref ModelId
+          TASKS_TABLE: !Ref TasksTable
+          BRIEFS_TABLE: !Ref BriefsTable
+          IDEMPOTENCY_TABLE: !Ref IdempotencyTable
+          CONFIG_PARAM: /daybreak/config
+      Policies:
+        - Statement:
+            - Sid: BedrockInvokeNova
+              Effect: Allow
+              Action: [bedrock:InvokeModel]
+              Resource:
+                - !Sub "arn:aws:bedrock:*::foundation-model/amazon.nova-*"
+                - !Sub "arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/*"
+            - Sid: ReadWriteTasksAndBriefs
+              Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+              Resource:
+                - !GetAtt TasksTable.Arn
+                - !GetAtt BriefsTable.Arn
+            - Sid: IdempotencyStore
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource: !GetAtt IdempotencyTable.Arn
+            - Sid: ReadConfig
+              Effect: Allow
+              Action: [ssm:GetParameter]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/daybreak/config"
+            - Sid: SendBrief
+              Effect: Allow
+              Action: [ses:SendEmail]
+              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${SenderEmail}"
+            - Sid: DeadLetter
+              Effect: Allow
+              Action: [sqs:SendMessage]
+              Resource: !GetAtt AgentDLQ.Arn
+
+  AgentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/daybreak-agent
+      RetentionInDays: 30
+
+  # ---- The schedule (the "always-on" trigger) ------------------------------
+  SchedulerInvokeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: scheduler.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: invoke-agent
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt AgentFunction.Arn
+              - Effect: Allow
+                Action: sqs:SendMessage
+                Resource: !GetAtt AgentDLQ.Arn
+
+  MorningSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: daybreak-morning
+      Description: Wakes the DayBreak agent to prepare the daily brief.
+      State: ENABLED
+      FlexibleTimeWindow: { Mode: "OFF" }
+      ScheduleExpression: !Ref ScheduleCron
+      ScheduleExpressionTimezone: !Ref ScheduleTimezone
+      Target:
+        Arn: !GetAtt AgentFunction.Arn
+        RoleArn: !GetAtt SchedulerInvokeRole.Arn
+        Input: "{}"
+        RetryPolicy:
+          MaximumRetryAttempts: 3
+          MaximumEventAgeInSeconds: 3600
+        DeadLetterConfig:
+          Arn: !GetAtt AgentDLQ.Arn
+
+  # ---- Optional read-only viewer ------------------------------------------
+  ViewerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: daybreak-viewer
+      CodeUri: src/
+      Handler: agent.viewer.lambda_handler
+      Description: Serves the latest stored brief as an HTML page.
+      MemorySize: 256
+      Timeout: 15
+      Environment:
+        Variables:
+          BRIEFS_TABLE: !Ref BriefsTable
+          USER_ID: !Ref UserId
+          USER_NAME: !Ref UserName
+      FunctionUrlConfig:
+        AuthType: NONE
+        Cors:
+          AllowOrigins: ["*"]
+          AllowMethods: [GET]
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:Query]
+              Resource: !GetAtt BriefsTable.Arn
+
+  # ---- Alarms --------------------------------------------------------------
+  AgentErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: daybreak-agent-errors
+      AlarmDescription: The agent Lambda reported an invocation error.
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - { Name: FunctionName, Value: !Ref AgentFunction }
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  BriefFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: daybreak-brief-failed
+      AlarmDescription: A brief failed to compose or deliver.
+      Namespace: DayBreak
+      MetricName: brief.failed
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  DLQAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: daybreak-dlq-not-empty
+      AlarmDescription: A scheduled run landed in the dead-letter queue.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - { Name: QueueName, Value: !GetAtt AgentDLQ.QueueName }
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  # ---- Dashboard -----------------------------------------------------------
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: DayBreak
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {"type":"metric","x":0,"y":0,"width":12,"height":6,"properties":{
+              "title":"Briefs sent vs failed","region":"${AWS::Region}","stat":"Sum","period":86400,
+              "metrics":[
+                ["DayBreak","brief.sent"],
+                ["DayBreak","brief.failed"]
+              ]}},
+            {"type":"metric","x":12,"y":0,"width":12,"height":6,"properties":{
+              "title":"Tools used","region":"${AWS::Region}","stat":"Sum","period":86400,
+              "metrics":[
+                ["DayBreak","tool.get_weather"],
+                ["DayBreak","tool.get_tasks"],
+                ["DayBreak","tool.get_stale_followups"],
+                ["DayBreak","tool.get_headlines"]
+              ]}},
+            {"type":"metric","x":0,"y":6,"width":12,"height":6,"properties":{
+              "title":"Agent duration (ms)","region":"${AWS::Region}","stat":"Average","period":86400,
+              "metrics":[["AWS/Lambda","Duration","FunctionName","daybreak-agent"]]}},
+            {"type":"metric","x":12,"y":6,"width":12,"height":6,"properties":{
+              "title":"DLQ depth","region":"${AWS::Region}","stat":"Maximum","period":300,
+              "metrics":[["AWS/SQS","ApproximateNumberOfMessagesVisible","QueueName","daybreak-agent-dlq"]]}}
+          ]
+        }
+
+Outputs:
+  AgentFunctionName:
+    Value: !Ref AgentFunction
+  ViewerUrl:
+    Description: Public link to the latest brief (use as the submission app link).
+    Value: !GetAtt ViewerFunctionUrl.FunctionUrl
+  TasksTableName:
+    Value: !Ref TasksTable
+  BriefsTableName:
+    Value: !Ref BriefsTable
+  DashboardUrl:
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=DayBreak"
+  ScheduleName:
+    Value: !Ref MorningSchedule

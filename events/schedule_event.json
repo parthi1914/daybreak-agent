@@ -1,0 +1,4 @@
+{
+  "note": "EventBridge Scheduler sends the Input configured on the schedule (default {}). Pass an optional date to backfill.",
+  "date": "2026-07-18"
+}
