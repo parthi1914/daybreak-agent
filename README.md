@@ -22,7 +22,7 @@ It's an *agent*, not a script: Nova chooses which tools to call each morning bas
 | Concern | Service |
 | --- | --- |
 | Trigger | Amazon EventBridge Scheduler (cron, timezone-aware) |
-| Compute | AWS Lambda (Python 3.12, arm64) |
+| Compute | AWS Lambda (Python 3.13, arm64) |
 | Reasoning | Amazon Bedrock — Nova Lite via the Converse API with tool use |
 | State | Amazon DynamoDB (tasks, briefs with TTL, idempotency) |
 | Config | AWS Systems Manager Parameter Store (retune without redeploy) |
@@ -54,7 +54,7 @@ docs/ARTICLE.md   The Builder Center submission article
 
 ## Deploy
 
-Prerequisites: an AWS account, the AWS SAM CLI, Python 3.12 on your PATH for `sam build` (or Docker for `sam build --use-container`), and Bedrock model access enabled for Nova Lite in your region.
+Prerequisites: an AWS account, the AWS SAM CLI, Python 3.13 on your PATH for `sam build` (or Docker for `sam build --use-container`), and Bedrock model access enabled for Nova Lite in your region.
 
 ```bash
 sam build
