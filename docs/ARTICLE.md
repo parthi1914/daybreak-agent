@@ -1,63 +1,95 @@
-# Weekend Agent Challenge: DayBreak — Your Autonomous Morning-Brief Agent
+# Weekend Agent Challenge: DayBreak — An Always-On Morning Brief Agent
 
 **Tag:** #agents
 
-*The best productivity tool is the one you never have to open. DayBreak is an AI agent that wakes before I do, gathers my day from real data, and leaves a single scannable brief in my inbox — with follow-up drafts already written for anything that's gone quiet.*
+DayBreak is a personal AI-powered agent that prepares my morning before I open an app, check a dashboard, or click a button. It wakes up on its own, gathers the parts of my day that usually live in different places, asks Amazon Bedrock Nova to reason over them, and sends me a clear brief with priorities, weather, schedule items, and ready-to-send follow-up drafts.
 
-![DayBreak architecture: EventBridge Scheduler wakes a Bedrock tool-use agent on Lambda, which reads tasks, weather, and stale threads, then delivers a brief by SES and stores it in DynamoDB.](architecture/architecture.png)
-*Figure 1 — DayBreak architecture. The schedule is the only trigger; everything else happens while I'm asleep.*
+The idea is simple: the best productivity tool is not another screen I need to remember to open. It is the assistant that quietly does the first pass while I am away and leaves the result waiting.
 
-![DayBreak AWS architecture diagram showing EventBridge Scheduler, Lambda, Bedrock Nova, DynamoDB, Gmail SMTP, and the React dashboard.](architecture/daybreak-architecture.svg)
-*Figure 2 — current AWS architecture for the deployed demo, including Gmail delivery and the React dashboard.*
+![DayBreak AWS architecture diagram showing EventBridge Scheduler, Lambda, Bedrock Nova, DynamoDB, Gmail SMTP, and the React dashboard.](../architecture/daybreak-architecture.svg)
+*Figure 1 — DayBreak AWS architecture.*
 
-![DayBreak data flow diagram showing schedule trigger, tool gathering, Bedrock reasoning, Gmail email, DynamoDB storage, and dashboard display.](architecture/daybreak-data-flow.svg)
-*Figure 3 — basic data flow from autonomous schedule trigger to ready-to-read result.*
+![DayBreak data flow diagram showing schedule trigger, tool gathering, Bedrock reasoning, Gmail email, DynamoDB storage, and dashboard display.](../architecture/daybreak-data-flow.svg)
+*Figure 2 — DayBreak data flow from schedule trigger to delivered result.*
 
 ## Vision & What the Agent Does
 
-Last weekend's challenge was about apps you open, paste into, and get something back from. This one flips it: build something that does the work on its own. That reframing is the whole point of DayBreak. There's no app to launch and no button to press. **Amazon EventBridge Scheduler fires the agent at 6 AM** in my timezone, and by the time I'm awake the result is waiting.
+Every morning has the same small tax: check what is overdue, remember what is due today, look for work threads that have gone quiet, scan the weather, and decide what actually matters. DayBreak is built to remove that morning reconstruction step.
 
-When it wakes, the agent gathers my day: today's weather for my location, my open tasks (with overdue and due-today surfaced first), any conversation threads that have gone quiet past a staleness threshold, and — optionally — a few news headlines. It then reasons over all of it with Amazon Bedrock and composes a **structured brief**: a one-line greeting, the weather in plain terms, my top priorities with *why each matters today*, my schedule, and short, paste-ready follow-up drafts for the stale threads. It reports back by emailing me a clean HTML brief and storing the record in DynamoDB. A React dashboard shows brief history and search, while settings and test-run controls are protected behind an admin token so the public showcase link stays safe.
+The agent is triggered by **Amazon EventBridge Scheduler** at 6 AM in `America/New_York`. There is no primary “Generate” button workflow. The scheduled event invokes the `daybreak-agent` Lambda function, and the agent does the work by itself.
 
-The problem it solves is the ten scattered minutes every morning spent reconstructing "what actually matters today" from four different places. DayBreak does that reconstruction overnight so the day starts already triaged.
+On each run, DayBreak gathers:
+
+- Open tasks from DynamoDB, with overdue and due-today items surfaced first
+- Stale threads that have not been updated past the configured threshold
+- Weather for the configured location through Open-Meteo
+- Optional RSS headlines when a feed is configured
+- Runtime preferences such as tone, recipient, and delivery provider from Systems Manager Parameter Store
+
+Then Amazon Bedrock Nova Lite runs a tool-use loop. Nova decides which tools to call, reads the JSON results, and composes a structured brief. The final output includes a greeting, weather summary, top priorities, schedule suggestions, stale-thread nudges, optional headlines, and a closing line.
+
+DayBreak reports back in two ways:
+
+- It sends a polished HTML/plain-text email through Gmail SMTP for the demo deployment.
+- It stores the brief in DynamoDB so the React dashboard can show history, status colors, and proof of previous runs.
+
+For demo proof, I also created a one-time EventBridge Scheduler run that generated and emailed a `2026-07-21` brief. The dashboard now shows multiple generated briefs, including the scheduler-created result.
+
+Live dashboard: `https://jnwpjyke5yiiweh7bc2ra2sclu0gmbba.lambda-url.us-east-1.on.aws/`
 
 ## How You Built It
 
-The core decision was to make this a genuine **agent, not a script**. Instead of hard-coding "fetch weather, then tasks, then write," I gave Bedrock Nova a set of tools and a goal and let it run a tool-use loop: it decides which tools to call, reads the results I feed back, and repeats until it has enough, then composes the brief. That means a morning with no stale threads simply doesn't produce a nudges section — the agent adapts to the data instead of forcing a fixed template.
+I built DayBreak as an AWS SAM application with two Lambda functions: one for the autonomous agent and one for the dashboard/API. I started with the core agent path first: schedule input, config loading, tool calls, Bedrock reasoning, email rendering, and DynamoDB persistence. Once that worked, I added the dashboard so the result was easy to showcase.
 
-Key decisions and the challenges behind them:
+The biggest implementation choice was making the system **agentic rather than scripted**. A simpler version could have called weather, tasks, stale threads, and headlines in a fixed order and then stuffed everything into a template. Instead, I exposed those capabilities as tools to Bedrock Nova. Nova can decide what to inspect and then produce the final structured brief from the real context it received.
 
-- **Structured output.** Free-form model prose is hard to render consistently and impossible to store cleanly. I force a final JSON turn against a fixed schema, so one payload drives the email, the stored record, and the viewer. A defensive parser tolerates fences and stray prose, with a minimal-brief fallback if parsing ever fails.
-- **Idempotency.** Scheduled invocations are at-least-once, and a retry or double-fire should never send two briefs for the same morning. I used AWS Lambda Powertools idempotency keyed on the date, backed by a DynamoDB store, so a repeat run replays the first result instead of re-sending.
-- **Degrade, don't fail.** Each tool is defensive: a dead weather API or an unseeded task table drops that section rather than failing the run. Only a genuine compose/deliver failure raises — which is exactly what I *want* to alarm on.
-- **Retune without redeploy.** Recipient, feeds, tone, and the stale threshold live in SSM Parameter Store, so I can adjust the agent from the console without touching code.
+Some key decisions:
 
-I validated the whole pipeline offline first — a local harness runs the tool loop, parsing, and rendering with Bedrock and AWS mocked — then deployed and invoked once manually before trusting the schedule.
+- **Structured output.** The final Bedrock response is forced into a JSON shape. That lets the same payload drive the email, the DynamoDB record, and the dashboard without scraping prose.
+- **Idempotency.** Scheduler invocations are at-least-once, so the agent is keyed by brief date using AWS Lambda Powertools idempotency with DynamoDB. Retries do not create duplicate emails for the same date.
+- **Graceful tool failure.** Weather or RSS failures should not kill the whole morning brief. Tool functions return empty sections or clear error payloads so the agent can still produce useful output.
+- **Operational visibility.** Failures raise errors so Lambda, CloudWatch alarms, SNS notifications, and the SQS dead-letter queue can make problems visible.
+- **Demo-friendly delivery.** SES worked and remains supported, but Gmail SMTP was added as an optional provider for a more reliable demo inbox experience.
+
+One challenge I hit was the Bedrock Converse tool-use protocol. After Nova used tools, the final formatting call still needed `toolConfig` because the message history contained `toolUse` and `toolResult` blocks. I fixed that and added a regression test so the final Bedrock turn always includes tool configuration.
+
+Another challenge was showcasing the “always-on” behavior. A dashboard alone can make the app feel button-driven, so I added an Overview tab that shows the schedule, AWS services, autonomous flow, and generated brief history. The UI uses a pizza-tracker-style flow: scheduled wake-up, agent starts, inputs gathered, Nova reasons, and results delivered.
 
 ## AWS Services Used / Architecture Overview
 
-- **Amazon EventBridge Scheduler** — the timezone-aware cron trigger. *This is the "always-on" part.*
-- **AWS Lambda** (Python 3.12, arm64) — the agent runtime and orchestration.
-- **Amazon Bedrock (Nova Lite, Converse API with tool use)** — the reasoning core.
-- **Amazon DynamoDB** — tasks, briefs (with TTL), and the idempotency store.
-- **AWS Systems Manager Parameter Store** — runtime configuration.
-- **Amazon SES** — delivers the brief.
-- **Amazon SQS + CloudWatch + SNS + AWS X-Ray** — a dead-letter queue for missed runs, alarms on errors and DLQ depth routed to email, a dashboard, and traces.
+DayBreak runs on AWS Free Tier-friendly services:
 
-All of it is one AWS SAM template with least-privilege IAM scoped per action (Bedrock invoke limited to Nova, DynamoDB limited to the three tables, SES limited to the sender identity). The trigger flow is simply: **Scheduler → Lambda → (tool loop over DynamoDB + external APIs + Bedrock) → SES + DynamoDB**, with the DLQ and alarms watching the edges.
+- **Amazon EventBridge Scheduler** — the autonomous trigger. The main schedule runs daily at 6 AM.
+- **AWS Lambda** — Python 3.13 runtime for the agent and dashboard/API.
+- **Amazon Bedrock Nova Lite** — the reasoning engine using the Converse API with tool use.
+- **Amazon DynamoDB** — stores tasks, generated briefs, and idempotency records.
+- **AWS Systems Manager Parameter Store** — stores runtime configuration such as tone, timezone, recipient, and delivery provider.
+- **Amazon SQS** — dead-letter queue for failed scheduled runs.
+- **Amazon CloudWatch** — logs, metrics, dashboard, and alarms.
+- **Amazon SNS** — alarm notifications.
+- **AWS X-Ray** — traces Lambda execution.
+- **AWS SAM / CloudFormation** — repeatable infrastructure deployment.
+- **Gmail SMTP** — demo email delivery provider. SES remains supported in the template.
 
-*Figure 4 — the EventBridge schedule showing its next run time (screenshot to capture in the console).*
-*Figure 5 — the brief as it lands in my inbox at 6 AM (screenshot to capture from email).*
+The basic architecture is:
+
+`EventBridge Scheduler → Lambda agent → Bedrock Nova tool loop → Gmail email + DynamoDB brief history → React dashboard`
+
+The tool loop reads from DynamoDB for tasks and stale threads, calls external APIs for weather and optional headlines, and sends all useful context back to Nova. Nova produces strict JSON, the renderer turns it into email, and the storage layer writes the audit record to DynamoDB.
+
+The React dashboard is served by a Lambda Function URL. Public users can view the generated brief history, while settings and manual test runs are protected by an admin token.
 
 ## What You Learned
 
-The biggest shift was designing for an agent that runs **when I'm not watching**. That changes what "done" means: it's not enough for the happy path to work once when I click invoke. I had to think about what happens when a data source is down, when the schedule fires twice, and how I'd even *know* something failed at 6 AM. That pushed idempotency, dead-lettering, and alarms from "nice to have" to "the actual product."
+The main lesson was that an always-on agent is less about a clever prompt and more about reliability boundaries. If something runs while I am asleep, then retries, idempotency, alarms, and graceful degradation are part of the product, not extra polish.
 
-I also got hands-on with Bedrock's **Converse tool-use loop** for the first time — letting the model drive which tools run, rather than orchestrating every call myself, is a cleaner mental model than I expected, and forcing a final structured-JSON turn turned out to be the trick that made model output safe to build a UI and a database record on.
+I also learned how practical Bedrock Converse tool use can be for personal automation. Letting Nova choose tools made the brief feel less like a rigid report and more like an assistant deciding what mattered that morning. At the same time, forcing a structured JSON final response kept the system safe to render, store, and display.
+
+The UI work taught me something too: for an autonomous agent, the dashboard should prove that work happened without making the dashboard feel like the product. The Overview tab, scheduler proof, status-colored brief history, and data-flow diagrams all help tell that story quickly.
 
 ## Link to App or Repo
 
-- **Live dashboard** (brief history and latest brief): *paste the `ViewerUrl` stack output here.*
-- **Source code:** *paste your public GitHub repo link here.*
+- **Live deployed dashboard:** `https://jnwpjyke5yiiweh7bc2ra2sclu0gmbba.lambda-url.us-east-1.on.aws/`
+- **Public GitHub repository:** `https://github.com/parthi1914/daybreak-agent`
 
-*Word count: ~780 (excludes captions and code). Built and deployed over one weekend on the AWS Free Tier.*
+Built and deployed on AWS for the Weekend Agent Challenge. The current dashboard includes generated briefs, Gmail-delivered demo email proof, and a scheduled-run history suitable for submission screenshots.
