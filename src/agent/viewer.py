@@ -387,6 +387,17 @@ def _dashboard_html() -> str:
     .section h3 {{ margin:0 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }}
     .priority {{ padding:10px 0; border-top:1px solid #edf0f4; }}
     .priority:first-of-type {{ border-top:0; }}
+    .priority-card {{ border:1px solid #e2e8f0; border-left:5px solid var(--status-color,#94a3b8); border-radius:8px; background:var(--status-bg,#fff); padding:12px 14px; margin:0 0 10px; box-shadow:0 8px 18px rgba(15,23,42,.05); }}
+    .priority-card:first-of-type {{ border-top:1px solid #e2e8f0; }}
+    .priority-main {{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }}
+    .priority-title {{ font-weight:750; color:#0f172a; }}
+    .status-pill {{ display:inline-flex; align-items:center; white-space:nowrap; border:1px solid var(--status-border,#cbd5e1); color:var(--status-text,#334155); background:#fff; border-radius:999px; padding:3px 9px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }}
+    .priority-reason {{ color:#475569; margin-top:6px; }}
+    .status-overdue {{ --status-color:#dc2626; --status-bg:#fff5f5; --status-border:#fecaca; --status-text:#991b1b; }}
+    .status-due-today {{ --status-color:#f59e0b; --status-bg:#fffbeb; --status-border:#fde68a; --status-text:#92400e; }}
+    .status-stale {{ --status-color:#7c3aed; --status-bg:#f5f3ff; --status-border:#ddd6fe; --status-text:#5b21b6; }}
+    .status-upcoming {{ --status-color:#0284c7; --status-bg:#f0f9ff; --status-border:#bae6fd; --status-text:#075985; }}
+    .status-open {{ --status-color:#0f766e; --status-bg:#f0fdfa; --status-border:#99f6e4; --status-text:#115e59; }}
     .muted {{ color:var(--muted); }}
     .draft {{ background:#f8fafc; border:1px solid var(--line); border-radius:8px; padding:12px; margin:8px 0 0; white-space:pre-wrap; }}
     .panel {{ padding:18px; }}
@@ -440,6 +451,16 @@ def _dashboard_html() -> str:
     }}
     function Metric({{label, value}}) {{
       return e("div", {{className:"metric"}}, e("div", {{className:"label"}}, label), e("div", {{className:"value"}}, value));
+    }}
+    function priorityStatus(due) {{
+      const raw = String(due || "").trim();
+      const key = raw.toLowerCase().replace(/_/g, " ");
+      if (!raw) return {{label:"Open", className:"status-open"}};
+      if (key.includes("overdue")) return {{label:"Overdue", className:"status-overdue"}};
+      if (key.includes("due today") || key === "today") return {{label:"Due today", className:"status-due-today"}};
+      if (key.includes("stale")) return {{label:"Stale", className:"status-stale"}};
+      if (key.includes("upcoming") || /^\\d{{4}}-\\d{{2}}-\\d{{2}}$/.test(raw)) return {{label:raw, className:"status-upcoming"}};
+      return {{label:raw, className:"status-open"}};
     }}
     function OverviewView({{status, briefs, goHistory}}) {{
       const agent = status?.agent || {{}};
@@ -512,10 +533,16 @@ def _dashboard_html() -> str:
         ),
         b.weather && e("section", {{className:"section"}}, e("h3", null, "Weather"), e("div", null, b.weather)),
         b.priorities?.length ? e("section", {{className:"section"}}, e("h3", null, "Top Priorities"),
-          b.priorities.map((p, i) => e("div", {{className:"priority", key:i}},
-            e("strong", null, p.title), p.due && e("span", {{className:"muted"}}, " - " + p.due),
-            p.reason && e("div", {{className:"muted"}}, p.reason)
-          ))
+          b.priorities.map((p, i) => {{
+            const status = priorityStatus(p.due);
+            return e("div", {{className:"priority priority-card " + status.className, key:i}},
+              e("div", {{className:"priority-main"}},
+                e("div", {{className:"priority-title"}}, p.title),
+                e("span", {{className:"status-pill"}}, status.label)
+              ),
+              p.reason && e("div", {{className:"priority-reason"}}, p.reason)
+            );
+          }})
         ) : null,
         b.schedule?.length ? e("section", {{className:"section"}}, e("h3", null, "Calendar"), b.schedule.map((s, i) => e("div", {{key:i}}, s))) : null,
         b.follow_ups?.length ? e("section", {{className:"section"}}, e("h3", null, "Nudges"), b.follow_ups.map((f, i) => e("div", {{key:i, className:"priority"}}, e("strong", null, f.subject), e("div", {{className:"draft"}}, f.draft)))) : null,
