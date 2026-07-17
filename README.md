@@ -92,6 +92,7 @@ Optional dashboard controls:
 pip install -r src/requirements.txt pytest
 python -m pytest tests/ -q          # unit tests, no AWS needed
 python scripts/local_invoke.py      # full pipeline with AWS + Bedrock mocked -> OS temp dir preview
+python scripts/local_dashboard.py   # React dashboard preview with mocked AWS data
 ```
 
 ## Design decisions
