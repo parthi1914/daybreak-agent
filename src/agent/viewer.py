@@ -355,17 +355,20 @@ def _dashboard_html() -> str:
     .usecase h3 {{ margin:10px 0 8px; font-size:15px; }}
     .usecase p {{ margin:0; color:var(--muted); }}
     .check {{ width:30px; height:30px; border-radius:8px; display:grid; place-items:center; background:#dcfce7; color:#166534; font-weight:800; }}
-    .tracker-panel {{ background:linear-gradient(135deg,#0f172a 0%,#172554 52%,#0f766e 100%); color:#fff; border:0; overflow:hidden; position:relative; }}
-    .tracker-panel h2 {{ color:#fff; }}
-    .tracker-panel .muted {{ color:#dbeafe; }}
-    .architecture {{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:14px; margin-top:16px; position:relative; }}
-    .architecture::before {{ content:""; position:absolute; left:8%; right:8%; top:30px; height:8px; border-radius:999px; background:linear-gradient(90deg,#38bdf8,#818cf8,#f59e0b,#22c55e,#14b8a6); box-shadow:0 12px 30px rgba(56,189,248,.22); }}
-    .step {{ background:rgba(255,255,255,.96); color:var(--ink); border:1px solid rgba(255,255,255,.70); border-radius:8px; padding:72px 14px 16px; position:relative; min-height:178px; box-shadow:0 18px 38px rgba(15,23,42,.22); overflow:hidden; }}
-    .step::before {{ content:""; position:absolute; inset:0 0 auto 0; height:5px; background:var(--step-color,#2563eb); }}
-    .step-node {{ position:absolute; top:12px; left:14px; width:44px; height:44px; border-radius:999px; display:grid; place-items:center; color:#fff; font-weight:800; background:var(--step-color,#2563eb); border:4px solid #fff; box-shadow:0 10px 22px rgba(15,23,42,.25); z-index:1; }}
-    .step-kicker {{ color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; }}
-    .step strong {{ display:block; margin-top:6px; font-size:16px; }}
-    .step p {{ margin:7px 0 0; }}
+    .tracker-panel {{ background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%); border:1px solid #cbd5e1; overflow:hidden; position:relative; }}
+    .tracker-head {{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px; }}
+    .tracker-head h2 {{ margin:0; font-size:20px; color:#0f172a; }}
+    .tracker-head p {{ margin:4px 0 0; color:#475569; max-width:760px; }}
+    .tracker-pill {{ display:inline-flex; align-items:center; white-space:nowrap; border-radius:999px; padding:7px 11px; background:#dcfce7; color:#166534; font-weight:700; font-size:12px; }}
+    .architecture {{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:16px; margin-top:10px; position:relative; }}
+    .architecture::before {{ content:""; position:absolute; left:8%; right:8%; top:34px; height:10px; border-radius:999px; background:linear-gradient(90deg,#0284c7,#7c3aed,#f59e0b,#16a34a,#0f766e); box-shadow:0 10px 22px rgba(2,132,199,.18); }}
+    .step {{ background:#fff; color:var(--ink); border:1px solid #d8e0ea; border-radius:8px; padding:86px 16px 18px; position:relative; min-height:210px; box-shadow:0 14px 28px rgba(15,23,42,.10); overflow:hidden; }}
+    .step::before {{ content:""; position:absolute; inset:0 0 auto 0; height:6px; background:var(--step-color,#2563eb); }}
+    .step-node {{ position:absolute; top:13px; left:50%; transform:translateX(-50%); width:54px; height:54px; border-radius:999px; display:grid; place-items:center; color:#fff; font-size:18px; font-weight:900; background:var(--step-color,#2563eb); border:5px solid #fff; box-shadow:0 12px 24px rgba(15,23,42,.24); z-index:1; }}
+    .step-kicker {{ color:var(--step-color,#2563eb); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }}
+    .step strong {{ display:block; margin-top:7px; font-size:17px; line-height:1.25; color:#0f172a; }}
+    .step p {{ margin:8px 0 0; color:#334155; line-height:1.45; }}
+    .step-result {{ display:block; margin-top:12px; padding-top:10px; border-top:1px solid #edf2f7; color:#475569; font-size:12px; font-weight:700; }}
     .services {{ display:flex; flex-wrap:wrap; gap:8px; }}
     .chip {{ display:inline-flex; align-items:center; border:1px solid #cbd5e1; background:linear-gradient(180deg,#fff,#f8fafc); border-radius:999px; padding:7px 11px; color:#334155; box-shadow:0 5px 12px rgba(15,23,42,.05); }}
     .search {{ display:flex; gap:8px; min-width:320px; }}
@@ -400,9 +403,10 @@ def _dashboard_html() -> str:
       .shell {{ grid-template-columns:1fr; }}
       .sidebar {{ position:static; }}
       .metrics, .grid, .form, .hero, .showcase-grid, .architecture {{ grid-template-columns:1fr; }}
-      .architecture::before {{ left:28px; right:auto; top:22px; bottom:22px; width:8px; height:auto; background:linear-gradient(180deg,#38bdf8,#818cf8,#f59e0b,#22c55e,#14b8a6); }}
-      .step {{ padding:18px 14px 18px 72px; min-height:126px; }}
-      .step-node {{ top:18px; left:14px; }}
+      .tracker-head {{ flex-direction:column; }}
+      .architecture::before {{ left:32px; right:auto; top:24px; bottom:24px; width:10px; height:auto; background:linear-gradient(180deg,#0284c7,#7c3aed,#f59e0b,#16a34a,#0f766e); }}
+      .step {{ padding:18px 14px 18px 84px; min-height:150px; }}
+      .step-node {{ top:18px; left:32px; transform:none; }}
       .topbar {{ height:auto; align-items:flex-start; flex-direction:column; padding:18px; }}
       .content {{ padding:18px; }}
       .search, .admin input {{ min-width:0; width:100%; }}
@@ -469,19 +473,26 @@ def _dashboard_html() -> str:
           e("p", null, item.detail)
         ))),
         e("div", {{className:"panel tracker-panel"}},
-          e("h2", null, "Autonomous Flow"),
+          e("div", {{className:"tracker-head"}},
+            e("div", null,
+              e("h2", null, "Autonomous Flow"),
+              e("p", null, "A delivery-tracker view of what happens without a button click: scheduled wake-up, input gathering, AI reasoning, and final delivery.")
+            ),
+            e("span", {{className:"tracker-pill"}}, "All steps active")
+          ),
           e("div", {{className:"architecture"}},
             [
-              ["1", "EventBridge", "Wakes DayBreak every morning at 6 AM.", "#0284c7"],
-              ["2", "Lambda", "Loads config and runs the agent orchestration.", "#7c3aed"],
-              ["3", "Tools", "Reads tasks, stale threads, weather, and feeds.", "#f59e0b"],
-              ["4", "Bedrock Nova", "Chooses tools and composes structured JSON.", "#16a34a"],
-              ["5", "SES + DynamoDB", "Emails the brief and stores history.", "#0f766e"]
-            ].map((s) => e("div", {{className:"step", key:s[0], style:{{"--step-color":s[3]}}}},
+              ["1", "Scheduled wake-up", "EventBridge Scheduler starts DayBreak every morning at 6 AM.", "Trigger confirmed", "#0284c7"],
+              ["2", "Agent starts", "Lambda loads user settings, profile, and idempotency protection.", "Run prepared safely", "#7c3aed"],
+              ["3", "Inputs gathered", "Tools read tasks, due dates, stale threads, weather, and feeds.", "Real context collected", "#f59e0b"],
+              ["4", "Nova reasons", "Bedrock Nova selects what matters and writes the structured brief.", "Priorities and nudges drafted", "#16a34a"],
+              ["5", "Results delivered", "SES sends the email and DynamoDB stores dashboard history.", "Ready when you return", "#0f766e"]
+            ].map((s) => e("div", {{className:"step", key:s[0], style:{{"--step-color":s[4]}}}},
               e("div", {{className:"step-node"}}, s[0]),
-              e("div", {{className:"step-kicker"}}, "Completed"),
+              e("div", {{className:"step-kicker"}}, "Step " + s[0]),
               e("strong", null, s[1]),
-              e("p", {{className:"muted"}}, s[2])
+              e("p", null, s[2]),
+              e("span", {{className:"step-result"}}, s[3])
             ))
           )
         ),
