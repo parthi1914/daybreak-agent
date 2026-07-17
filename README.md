@@ -6,6 +6,11 @@ Built for the **Build an Always-On Agent Weekend Challenge**.
 
 ![Architecture](architecture/architecture.png)
 
+New draw.io-style diagrams for the submission:
+
+- [AWS architecture diagram](architecture/daybreak-architecture.svg)
+- [Detailed data-flow diagram](architecture/daybreak-data-flow.svg)
+
 ## What it does
 
 Every morning the agent:
@@ -48,7 +53,7 @@ src/agent/
 template.yaml     SAM: scheduler, Lambda, tables, SES, DLQ, alarms, dashboard, IAM
 scripts/          seed_data.py (demo data), local_invoke.py (offline end-to-end)
 tests/            Unit tests for parsing, mapping, rendering
-architecture/     diagram.py + rendered PNG
+architecture/     diagram.py + rendered PNG/SVG architecture assets
 docs/ARTICLE.md   The Builder Center submission article
 ```
 

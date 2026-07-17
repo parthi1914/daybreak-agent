@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">DayBreak AWS Architecture</title>
+  <desc id="desc">Draw.io style AWS architecture for the DayBreak always-on agent.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#334155"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#0f766e"/>
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#0f172a" flood-opacity="0.14"/>
+    </filter>
+    <style>
+      .bg{fill:#f4f7fb}
+      .title{font:700 30px Arial, Helvetica, sans-serif;fill:#0f172a}
+      .subtitle{font:400 16px Arial, Helvetica, sans-serif;fill:#475569}
+      .lane{fill:#ffffff;stroke:#cbd5e1;stroke-width:2;rx:18;filter:url(#shadow)}
+      .laneTitle{font:700 17px Arial, Helvetica, sans-serif;fill:#334155}
+      .box{fill:#ffffff;stroke:#94a3b8;stroke-width:2;rx:12;filter:url(#shadow)}
+      .boxBlue{fill:#eff6ff;stroke:#2563eb}
+      .boxPurple{fill:#f5f3ff;stroke:#7c3aed}
+      .boxAmber{fill:#fffbeb;stroke:#f59e0b}
+      .boxGreen{fill:#f0fdfa;stroke:#0f766e}
+      .boxRed{fill:#fff1f2;stroke:#e11d48}
+      .boxGray{fill:#f8fafc;stroke:#64748b}
+      .label{font:700 16px Arial, Helvetica, sans-serif;fill:#0f172a}
+      .small{font:400 13px Arial, Helvetica, sans-serif;fill:#475569}
+      .tiny{font:700 11px Arial, Helvetica, sans-serif;fill:#64748b;text-transform:uppercase}
+      .arrow{stroke:#334155;stroke-width:3;fill:none;marker-end:url(#arrow)}
+      .arrowBlue{stroke:#2563eb;stroke-width:3;fill:none;marker-end:url(#arrowBlue)}
+      .arrowGreen{stroke:#0f766e;stroke-width:3;fill:none;marker-end:url(#arrowGreen)}
+      .dash{stroke-dasharray:8 7}
+      .pill{fill:#e0f2fe;stroke:#0284c7;stroke-width:1.5;rx:16}
+      .pillText{font:700 12px Arial, Helvetica, sans-serif;fill:#075985}
+    </style>
+  </defs>
+
+  <rect class="bg" width="1440" height="900"/>
+  <text class="title" x="54" y="58">DayBreak - Always-On Morning Brief Agent</text>
+  <text class="subtitle" x="54" y="86">EventBridge Scheduler wakes an AI agent, Bedrock Nova decides what to inspect, and Gmail/DynamoDB have the result ready when you return.</text>
+
+  <rect class="lane" x="42" y="125" width="300" height="650"/>
+  <text class="laneTitle" x="70" y="160">Autonomous Trigger</text>
+
+  <rect class="lane" x="382" y="125" width="390" height="650"/>
+  <text class="laneTitle" x="410" y="160">Agent Runtime</text>
+
+  <rect class="lane" x="812" y="125" width="270" height="650"/>
+  <text class="laneTitle" x="840" y="160">AI + State</text>
+
+  <rect class="lane" x="1122" y="125" width="276" height="650"/>
+  <text class="laneTitle" x="1150" y="160">Delivery + Showcase</text>
+
+  <g transform="translate(76 210)">
+    <rect class="box boxBlue" width="232" height="104"/>
+    <text class="tiny" x="20" y="28">Amazon EventBridge</text>
+    <text class="label" x="20" y="55">Scheduler</text>
+    <text class="small" x="20" y="78">cron(0 6 * * ? *)</text>
+    <text class="small" x="20" y="96">America/New_York</text>
+  </g>
+
+  <g transform="translate(76 380)">
+    <rect class="box boxAmber" width="232" height="104"/>
+    <text class="tiny" x="20" y="28">Demo Proof</text>
+    <text class="label" x="20" y="55">One-Time Schedule</text>
+    <text class="small" x="20" y="78">Triggers a sample brief</text>
+    <text class="small" x="20" y="96">without a button click</text>
+  </g>
+
+  <g transform="translate(420 205)">
+    <rect class="box boxPurple" width="300" height="128"/>
+    <text class="tiny" x="22" y="30">AWS Lambda - Python 3.13</text>
+    <text class="label" x="22" y="60">daybreak-agent</text>
+    <text class="small" x="22" y="84">Loads config, enforces idempotency,</text>
+    <text class="small" x="22" y="104">runs the Bedrock tool-use loop</text>
+  </g>
+
+  <g transform="translate(420 388)">
+    <rect class="box boxGray" width="300" height="106"/>
+    <text class="tiny" x="22" y="30">AWS Systems Manager</text>
+    <text class="label" x="22" y="58">Parameter Store</text>
+    <text class="small" x="22" y="82">recipient, tone, provider, Gmail user</text>
+  </g>
+
+  <g transform="translate(420 552)">
+    <rect class="box boxRed" width="300" height="112"/>
+    <text class="tiny" x="22" y="30">Reliability</text>
+    <text class="label" x="22" y="58">Idempotency + DLQ</text>
+    <text class="small" x="22" y="82">DynamoDB idempotency table</text>
+    <text class="small" x="22" y="101">SQS dead-letter queue for failures</text>
+  </g>
+
+  <g transform="translate(846 190)">
+    <rect class="box boxGreen" width="202" height="112"/>
+    <text class="tiny" x="18" y="30">Amazon Bedrock</text>
+    <text class="label" x="18" y="58">Nova Lite</text>
+    <text class="small" x="18" y="82">Converse API</text>
+    <text class="small" x="18" y="101">tool-use reasoning</text>
+  </g>
+
+  <g transform="translate(846 360)">
+    <rect class="box boxBlue" width="202" height="112"/>
+    <text class="tiny" x="18" y="30">DynamoDB</text>
+    <text class="label" x="18" y="58">Tasks Table</text>
+    <text class="small" x="18" y="82">open tasks, due dates,</text>
+    <text class="small" x="18" y="101">stale threads</text>
+  </g>
+
+  <g transform="translate(846 538)">
+    <rect class="box boxAmber" width="202" height="112"/>
+    <text class="tiny" x="18" y="30">External tools</text>
+    <text class="label" x="18" y="58">Weather / RSS</text>
+    <text class="small" x="18" y="82">Open-Meteo forecast</text>
+    <text class="small" x="18" y="101">optional headlines</text>
+  </g>
+
+  <g transform="translate(1150 190)">
+    <rect class="box boxGreen" width="220" height="112"/>
+    <text class="tiny" x="18" y="30">Gmail SMTP</text>
+    <text class="label" x="18" y="58">Email Delivery</text>
+    <text class="small" x="18" y="82">HTML + text brief</text>
+    <text class="small" x="18" y="101">sent to Gmail inbox</text>
+  </g>
+
+  <g transform="translate(1150 360)">
+    <rect class="box boxBlue" width="220" height="112"/>
+    <text class="tiny" x="18" y="30">DynamoDB</text>
+    <text class="label" x="18" y="58">Briefs Table</text>
+    <text class="small" x="18" y="82">history, message id, TTL</text>
+    <text class="small" x="18" y="101">dashboard source</text>
+  </g>
+
+  <g transform="translate(1150 535)">
+    <rect class="box boxPurple" width="220" height="116"/>
+    <text class="tiny" x="18" y="30">Lambda Function URL</text>
+    <text class="label" x="18" y="58">React Dashboard</text>
+    <text class="small" x="18" y="82">overview, brief history,</text>
+    <text class="small" x="18" y="101">status colors, test run</text>
+  </g>
+
+  <path class="arrowBlue" d="M308 262 H420"/>
+  <path class="arrowBlue dash" d="M308 432 H420"/>
+  <path class="arrow" d="M720 270 H846"/>
+  <path class="arrow dash" d="M846 246 C792 246 790 300 720 300"/>
+  <path class="arrow" d="M720 440 H846"/>
+  <path class="arrow" d="M720 600 H846"/>
+  <path class="arrowGreen" d="M1048 246 H1150"/>
+  <path class="arrowGreen" d="M720 300 C915 300 965 420 1150 420"/>
+  <path class="arrow" d="M1260 472 V535"/>
+  <path class="arrow dash" d="M570 388 V333"/>
+  <path class="arrow dash" d="M570 552 V333"/>
+
+  <rect class="pill" x="420" y="704" width="318" height="38"/>
+  <text class="pillText" x="440" y="728">CloudWatch + X-Ray + SNS alarms observe the workflow</text>
+
+  <text class="subtitle" x="54" y="835">Legend: solid arrows = primary runtime flow, dashed arrows = tool/use or support path. Gmail is the active demo provider; SES remains supported in the template.</text>
+</svg>

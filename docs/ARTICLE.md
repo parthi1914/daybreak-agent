@@ -7,6 +7,12 @@
 ![DayBreak architecture: EventBridge Scheduler wakes a Bedrock tool-use agent on Lambda, which reads tasks, weather, and stale threads, then delivers a brief by SES and stores it in DynamoDB.](architecture/architecture.png)
 *Figure 1 — DayBreak architecture. The schedule is the only trigger; everything else happens while I'm asleep.*
 
+![DayBreak AWS architecture diagram showing EventBridge Scheduler, Lambda, Bedrock Nova, DynamoDB, Gmail SMTP, and the React dashboard.](architecture/daybreak-architecture.svg)
+*Figure 2 — current AWS architecture for the deployed demo, including Gmail delivery and the React dashboard.*
+
+![DayBreak data flow diagram showing schedule trigger, tool gathering, Bedrock reasoning, Gmail email, DynamoDB storage, and dashboard display.](architecture/daybreak-data-flow.svg)
+*Figure 3 — basic data flow from autonomous schedule trigger to ready-to-read result.*
+
 ## Vision & What the Agent Does
 
 Last weekend's challenge was about apps you open, paste into, and get something back from. This one flips it: build something that does the work on its own. That reframing is the whole point of DayBreak. There's no app to launch and no button to press. **Amazon EventBridge Scheduler fires the agent at 6 AM** in my timezone, and by the time I'm awake the result is waiting.
@@ -40,8 +46,8 @@ I validated the whole pipeline offline first — a local harness runs the tool l
 
 All of it is one AWS SAM template with least-privilege IAM scoped per action (Bedrock invoke limited to Nova, DynamoDB limited to the three tables, SES limited to the sender identity). The trigger flow is simply: **Scheduler → Lambda → (tool loop over DynamoDB + external APIs + Bedrock) → SES + DynamoDB**, with the DLQ and alarms watching the edges.
 
-*Figure 2 — the EventBridge schedule showing its next run time (screenshot to capture in the console).*
-*Figure 3 — the brief as it lands in my inbox at 6 AM (screenshot to capture from email).*
+*Figure 4 — the EventBridge schedule showing its next run time (screenshot to capture in the console).*
+*Figure 5 — the brief as it lands in my inbox at 6 AM (screenshot to capture from email).*
 
 ## What You Learned
 
