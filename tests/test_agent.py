@@ -4,10 +4,12 @@ harness; these tests stay pure and fast.
 """
 import os
 import sys
+from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from agent.agent_core import _extract_json  # noqa: E402
+from agent.agent_core import compose_brief  # noqa: E402
 from agent.config import RuntimeConfig, UserProfile  # noqa: E402
 from agent.models import Brief  # noqa: E402
 from agent.renderer import render_html, render_text, subject_line  # noqa: E402
@@ -184,3 +186,32 @@ def test_viewer_config_disabled_without_admin_token(monkeypatch):
 
     assert resp["statusCode"] == 403
     assert "admin_disabled" in resp["body"]
+
+
+def test_compose_brief_keeps_tool_config_on_final_turn(monkeypatch):
+    converse = MagicMock(side_effect=[
+        {
+            "output": {"message": {"role": "assistant", "content": [
+                {"toolUse": {"toolUseId": "u1", "name": "get_tasks", "input": {}}}
+            ]}},
+            "stopReason": "tool_use",
+        },
+        {
+            "output": {"message": {"role": "assistant", "content": [{"text": "Ready."}]}},
+            "stopReason": "end_turn",
+        },
+        {
+            "output": {"message": {"role": "assistant", "content": [{"text": '{"greeting":"hi"}'}]}},
+            "stopReason": "end_turn",
+        },
+    ])
+    bedrock = MagicMock()
+    bedrock.converse = converse
+    metrics = MagicMock()
+    monkeypatch.setattr("agent.agent_core._bedrock", bedrock)
+    monkeypatch.setattr("agent.agent_core.TOOL_IMPLS", {"get_tasks": lambda cfg: {"tasks": []}})
+
+    brief = compose_brief(_cfg(), metrics, today="2026-07-18")
+
+    assert brief.greeting == "hi"
+    assert converse.call_args_list[-1].kwargs["toolConfig"]["tools"]

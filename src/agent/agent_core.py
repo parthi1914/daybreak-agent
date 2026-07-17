@@ -135,6 +135,7 @@ def compose_brief(cfg: RuntimeConfig, metrics, *, today: str | None = None) -> B
         modelId=cfg.model_id,
         system=system,
         messages=messages,
+        toolConfig=tools,
         inferenceConfig={"maxTokens": 1400, "temperature": 0.3},
     )
     final_text = "".join(
