@@ -295,58 +295,79 @@ def _dashboard_html() -> str:
   <style>
     :root {{
       color-scheme: light;
-      --ink:#172033; --muted:#657084; --line:#dde3eb; --panel:#ffffff;
-      --bg:#f4f6f9; --nav:#111827; --accent:#2563eb; --accent-2:#0f766e;
-      --warn:#b45309; --danger:#b91c1c;
+      --ink:#111827; --muted:#667085; --line:#d8e0ea; --panel:#ffffff;
+      --bg:#eef3f8; --nav:#0b1220; --nav-2:#111c31; --accent:#2563eb; --accent-2:#0f766e;
+      --violet:#7c3aed; --amber:#f59e0b; --rose:#e11d48; --sky:#0284c7;
+      --green:#16a34a; --warn:#b45309; --danger:#b91c1c;
+      --shadow:0 14px 34px rgba(15,23,42,.10); --soft-shadow:0 8px 22px rgba(15,23,42,.07);
     }}
     * {{ box-sizing:border-box; }}
-    body {{ margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }}
+    body {{ margin:0; background:
+      radial-gradient(circle at 18% 0%, rgba(37,99,235,.12), transparent 28%),
+      linear-gradient(180deg,#f7fafc 0%,var(--bg) 44%,#e8eef6 100%);
+      color:var(--ink); font:14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }}
     button, input, select, textarea {{ font:inherit; }}
-    button {{ border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; padding:8px 12px; cursor:pointer; }}
-    button.primary {{ background:var(--accent); border-color:var(--accent); color:#fff; }}
-    button.ghost {{ background:transparent; color:#e5e7eb; border-color:#374151; }}
+    button {{ border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:8px; padding:8px 12px; cursor:pointer; transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; }}
+    button:hover {{ transform:translateY(-1px); box-shadow:var(--soft-shadow); }}
+    button.primary {{ background:linear-gradient(135deg,var(--accent),#1d4ed8); border-color:var(--accent); color:#fff; }}
+    button.ghost {{ background:rgba(255,255,255,.04); color:#e5e7eb; border-color:#2b3a53; }}
     button:disabled {{ opacity:.55; cursor:not-allowed; }}
     .shell {{ display:grid; grid-template-columns:260px 1fr; min-height:100vh; }}
-    .sidebar {{ background:var(--nav); color:#f9fafb; padding:22px; display:flex; flex-direction:column; gap:22px; }}
+    .sidebar {{ background:linear-gradient(180deg,var(--nav) 0%,var(--nav-2) 100%); color:#f9fafb; padding:22px; display:flex; flex-direction:column; gap:22px; box-shadow:10px 0 30px rgba(15,23,42,.12); }}
     .brand {{ display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.01em; }}
-    .brandmark {{ width:34px; height:34px; border-radius:8px; display:grid; place-items:center; background:#f59e0b; color:#111827; font-weight:800; }}
+    .brandmark {{ width:38px; height:38px; border-radius:10px; display:grid; place-items:center; background:linear-gradient(135deg,#fbbf24,#f97316); color:#111827; font-weight:800; box-shadow:0 12px 28px rgba(249,115,22,.28); }}
     .nav {{ display:grid; gap:6px; }}
     .nav button {{ text-align:left; width:100%; }}
-    .nav button.active {{ background:#fff; color:#111827; border-color:#fff; }}
+    .nav button.active {{ background:#fff; color:#111827; border-color:#fff; box-shadow:0 8px 20px rgba(255,255,255,.12); }}
     .sidefoot {{ margin-top:auto; color:#aeb7c6; font-size:12px; }}
     .main {{ min-width:0; }}
-    .topbar {{ height:72px; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:0 28px; border-bottom:1px solid var(--line); background:#fff; }}
+    .topbar {{ height:76px; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:0 28px; border-bottom:1px solid var(--line); background:rgba(255,255,255,.88); backdrop-filter:blur(10px); }}
     .title h1 {{ margin:0; font-size:20px; line-height:1.2; }}
     .title p {{ margin:3px 0 0; color:var(--muted); }}
     .admin {{ display:flex; align-items:center; gap:8px; }}
     .admin input {{ width:220px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; }}
     .content {{ padding:24px 28px 32px; display:grid; gap:18px; }}
     .metrics {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }}
-    .metric, .panel, .brief, .empty {{ background:#fff; border:1px solid var(--line); border-radius:8px; }}
-    .metric {{ padding:14px 16px; }}
+    .metric, .panel, .brief, .empty {{ background:rgba(255,255,255,.96); border:1px solid rgba(216,224,234,.95); border-radius:8px; box-shadow:var(--soft-shadow); }}
+    .metric {{ padding:16px 18px; position:relative; overflow:hidden; }}
+    .metric::before {{ content:""; position:absolute; inset:0 auto 0 0; width:4px; background:linear-gradient(180deg,var(--accent),var(--accent-2)); }}
+    .metric:nth-child(2)::before {{ background:linear-gradient(180deg,var(--violet),var(--accent)); }}
+    .metric:nth-child(3)::before {{ background:linear-gradient(180deg,var(--amber),#ef4444); }}
+    .metric:nth-child(4)::before {{ background:linear-gradient(180deg,var(--green),var(--accent-2)); }}
     .metric .label {{ color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }}
     .metric .value {{ font-size:26px; font-weight:700; margin-top:4px; }}
     .toolbar {{ display:flex; align-items:center; justify-content:space-between; gap:12px; }}
-    .hero {{ background:#fff; border:1px solid var(--line); border-radius:8px; padding:22px; display:grid; grid-template-columns:1.25fr .75fr; gap:20px; align-items:start; }}
-    .hero h2 {{ margin:0; font-size:28px; line-height:1.15; }}
-    .hero p {{ margin:8px 0 0; color:var(--muted); max-width:760px; }}
-    .proof {{ display:grid; gap:10px; }}
+    .hero {{ background:linear-gradient(135deg,#ffffff 0%,#f8fbff 46%,#eef6ff 100%); border:1px solid rgba(190,204,224,.95); border-radius:8px; padding:26px; display:grid; grid-template-columns:1.25fr .75fr; gap:22px; align-items:start; box-shadow:var(--shadow); position:relative; overflow:hidden; }}
+    .hero::after {{ content:""; position:absolute; right:-80px; top:-90px; width:260px; height:260px; background:radial-gradient(circle, rgba(37,99,235,.16), transparent 66%); pointer-events:none; }}
+    .hero h2 {{ margin:12px 0 0; font-size:32px; line-height:1.12; max-width:900px; }}
+    .hero p {{ margin:10px 0 0; color:var(--muted); max-width:760px; font-size:15px; }}
+    .proof {{ display:grid; gap:8px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; box-shadow:var(--soft-shadow); }}
     .proof-row {{ display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid #edf0f4; }}
     .proof-row:last-child {{ border-bottom:0; }}
     .proof-row span:first-child {{ color:var(--muted); }}
     .proof-row strong {{ text-align:right; }}
     .showcase-grid {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }}
-    .usecase {{ background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; min-height:150px; }}
+    .usecase {{ background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; min-height:158px; box-shadow:var(--soft-shadow); position:relative; overflow:hidden; }}
+    .usecase::before {{ content:""; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--accent),var(--sky)); }}
+    .usecase:nth-child(2)::before {{ background:linear-gradient(90deg,var(--violet),#db2777); }}
+    .usecase:nth-child(3)::before {{ background:linear-gradient(90deg,var(--amber),#ef4444); }}
+    .usecase:nth-child(4)::before {{ background:linear-gradient(90deg,var(--green),var(--accent-2)); }}
     .usecase h3 {{ margin:10px 0 8px; font-size:15px; }}
     .usecase p {{ margin:0; color:var(--muted); }}
-    .check {{ width:28px; height:28px; border-radius:8px; display:grid; place-items:center; background:#dcfce7; color:#166534; font-weight:800; }}
-    .architecture {{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }}
-    .step {{ background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; position:relative; min-height:106px; }}
-    .step:not(:last-child)::after {{ content:""; position:absolute; right:-10px; top:50%; width:10px; height:1px; background:#aab4c3; }}
+    .check {{ width:30px; height:30px; border-radius:8px; display:grid; place-items:center; background:#dcfce7; color:#166534; font-weight:800; }}
+    .tracker-panel {{ background:linear-gradient(135deg,#0f172a 0%,#172554 52%,#0f766e 100%); color:#fff; border:0; overflow:hidden; position:relative; }}
+    .tracker-panel h2 {{ color:#fff; }}
+    .tracker-panel .muted {{ color:#dbeafe; }}
+    .architecture {{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:14px; margin-top:16px; position:relative; }}
+    .architecture::before {{ content:""; position:absolute; left:8%; right:8%; top:30px; height:8px; border-radius:999px; background:linear-gradient(90deg,#38bdf8,#818cf8,#f59e0b,#22c55e,#14b8a6); box-shadow:0 12px 30px rgba(56,189,248,.22); }}
+    .step {{ background:rgba(255,255,255,.96); color:var(--ink); border:1px solid rgba(255,255,255,.70); border-radius:8px; padding:72px 14px 16px; position:relative; min-height:178px; box-shadow:0 18px 38px rgba(15,23,42,.22); overflow:hidden; }}
+    .step::before {{ content:""; position:absolute; inset:0 0 auto 0; height:5px; background:var(--step-color,#2563eb); }}
+    .step-node {{ position:absolute; top:12px; left:14px; width:44px; height:44px; border-radius:999px; display:grid; place-items:center; color:#fff; font-weight:800; background:var(--step-color,#2563eb); border:4px solid #fff; box-shadow:0 10px 22px rgba(15,23,42,.25); z-index:1; }}
     .step-kicker {{ color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; }}
-    .step strong {{ display:block; margin-top:6px; }}
+    .step strong {{ display:block; margin-top:6px; font-size:16px; }}
+    .step p {{ margin:7px 0 0; }}
     .services {{ display:flex; flex-wrap:wrap; gap:8px; }}
-    .chip {{ display:inline-flex; align-items:center; border:1px solid var(--line); background:#fff; border-radius:999px; padding:6px 10px; color:#334155; }}
+    .chip {{ display:inline-flex; align-items:center; border:1px solid #cbd5e1; background:linear-gradient(180deg,#fff,#f8fafc); border-radius:999px; padding:7px 11px; color:#334155; box-shadow:0 5px 12px rgba(15,23,42,.05); }}
     .search {{ display:flex; gap:8px; min-width:320px; }}
     .search input {{ width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px; }}
     .grid {{ display:grid; grid-template-columns:320px 1fr; gap:16px; align-items:start; }}
@@ -379,7 +400,9 @@ def _dashboard_html() -> str:
       .shell {{ grid-template-columns:1fr; }}
       .sidebar {{ position:static; }}
       .metrics, .grid, .form, .hero, .showcase-grid, .architecture {{ grid-template-columns:1fr; }}
-      .step:not(:last-child)::after {{ display:none; }}
+      .architecture::before {{ left:28px; right:auto; top:22px; bottom:22px; width:8px; height:auto; background:linear-gradient(180deg,#38bdf8,#818cf8,#f59e0b,#22c55e,#14b8a6); }}
+      .step {{ padding:18px 14px 18px 72px; min-height:126px; }}
+      .step-node {{ top:18px; left:14px; }}
       .topbar {{ height:auto; align-items:flex-start; flex-direction:column; padding:18px; }}
       .content {{ padding:18px; }}
       .search, .admin input {{ min-width:0; width:100%; }}
@@ -445,16 +468,21 @@ def _dashboard_html() -> str:
           e("h3", null, item.label),
           e("p", null, item.detail)
         ))),
-        e("div", {{className:"panel"}},
+        e("div", {{className:"panel tracker-panel"}},
           e("h2", null, "Autonomous Flow"),
           e("div", {{className:"architecture"}},
             [
-              ["1", "EventBridge", "Wakes DayBreak every morning at 6 AM."],
-              ["2", "Lambda", "Loads config and runs the agent orchestration."],
-              ["3", "Tools", "Reads tasks, stale threads, weather, and feeds."],
-              ["4", "Bedrock Nova", "Chooses tools and composes structured JSON."],
-              ["5", "SES + DynamoDB", "Emails the brief and stores history."]
-            ].map((s) => e("div", {{className:"step", key:s[0]}}, e("div", {{className:"step-kicker"}}, "Step " + s[0]), e("strong", null, s[1]), e("p", {{className:"muted"}}, s[2])))
+              ["1", "EventBridge", "Wakes DayBreak every morning at 6 AM.", "#0284c7"],
+              ["2", "Lambda", "Loads config and runs the agent orchestration.", "#7c3aed"],
+              ["3", "Tools", "Reads tasks, stale threads, weather, and feeds.", "#f59e0b"],
+              ["4", "Bedrock Nova", "Chooses tools and composes structured JSON.", "#16a34a"],
+              ["5", "SES + DynamoDB", "Emails the brief and stores history.", "#0f766e"]
+            ].map((s) => e("div", {{className:"step", key:s[0], style:{{"--step-color":s[3]}}}},
+              e("div", {{className:"step-node"}}, s[0]),
+              e("div", {{className:"step-kicker"}}, "Completed"),
+              e("strong", null, s[1]),
+              e("p", {{className:"muted"}}, s[2])
+            ))
           )
         ),
         e("div", {{className:"panel"}},
