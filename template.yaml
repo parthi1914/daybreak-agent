@@ -285,6 +285,9 @@ Resources:
           CONFIG_PARAM: /daybreak/config
           AGENT_FUNCTION_NAME: !Ref AgentFunction
           DASHBOARD_ADMIN_TOKEN: !Ref DashboardAdminToken
+          SCHEDULE_NAME: !Ref MorningSchedule
+          SCHEDULE_CRON: !Ref ScheduleCron
+          SCHEDULE_TIMEZONE: !Ref ScheduleTimezone
       FunctionUrlConfig:
         AuthType: NONE
         Cors:

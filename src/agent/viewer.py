@@ -28,6 +28,9 @@ _NAME = os.environ.get("USER_NAME", "there")
 _CONFIG_PARAM = os.environ.get("CONFIG_PARAM", "/daybreak/config")
 _AGENT_FUNCTION = os.environ.get("AGENT_FUNCTION_NAME", "daybreak-agent")
 _ADMIN_TOKEN = os.environ.get("DASHBOARD_ADMIN_TOKEN", "")
+_SCHEDULE_NAME = os.environ.get("SCHEDULE_NAME", "daybreak-morning")
+_SCHEDULE_CRON = os.environ.get("SCHEDULE_CRON", "cron(0 6 * * ? *)")
+_SCHEDULE_TIMEZONE = os.environ.get("SCHEDULE_TIMEZONE", "America/New_York")
 
 _JSON_HEADERS = {
     "Content-Type": "application/json; charset=utf-8",
@@ -213,6 +216,52 @@ def _api_briefs(event: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _api_status(event: dict[str, Any]) -> dict[str, Any]:
+    briefs = _list_briefs(limit=30)
+    totals = {
+        "briefs": len(briefs),
+        "priorities": sum(item["stats"]["priorities"] for item in briefs),
+        "followUps": sum(item["stats"]["followUps"] for item in briefs),
+        "headlines": sum(item["stats"]["headlines"] for item in briefs),
+    }
+    latest = briefs[0] if briefs else None
+    return _response(
+        200,
+        {
+            "agent": {
+                "name": "DayBreak",
+                "userName": _NAME,
+                "mode": "Always-on scheduled agent",
+                "scheduleName": _SCHEDULE_NAME,
+                "scheduleExpression": _SCHEDULE_CRON,
+                "timezone": _SCHEDULE_TIMEZONE,
+                "trigger": "Amazon EventBridge Scheduler",
+                "runtime": "AWS Lambda + Amazon Bedrock Nova Lite",
+                "delivery": "Amazon SES email + DynamoDB dashboard history",
+            },
+            "challengeFit": [
+                {"label": "Morning brief agent", "status": "complete", "detail": "Runs at 6 AM and drafts the day before the user wakes up."},
+                {"label": "Watcher", "status": "complete", "detail": "Watches task due dates, stale threads, weather, and optional headlines."},
+                {"label": "Overnight tidy-up", "status": "complete", "detail": "Sorts the backlog into priorities, schedule items, and quick context."},
+                {"label": "Stale-thread nudge", "status": "complete", "detail": "Finds quiet threads and drafts ready-to-send follow-ups."},
+            ],
+            "services": [
+                "EventBridge Scheduler",
+                "AWS Lambda",
+                "Amazon Bedrock Nova Lite",
+                "Amazon DynamoDB",
+                "Amazon SES",
+                "AWS Systems Manager Parameter Store",
+                "Amazon SQS DLQ",
+                "CloudWatch + SNS alarms",
+            ],
+            "totals": totals,
+            "latest": latest,
+            "adminEnabled": bool(_ADMIN_TOKEN),
+        },
+    )
+
+
 def _api_config(event: dict[str, Any]) -> dict[str, Any]:
     denied = _require_admin(event)
     if denied:
@@ -278,6 +327,26 @@ def _dashboard_html() -> str:
     .metric .label {{ color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.08em; }}
     .metric .value {{ font-size:26px; font-weight:700; margin-top:4px; }}
     .toolbar {{ display:flex; align-items:center; justify-content:space-between; gap:12px; }}
+    .hero {{ background:#fff; border:1px solid var(--line); border-radius:8px; padding:22px; display:grid; grid-template-columns:1.25fr .75fr; gap:20px; align-items:start; }}
+    .hero h2 {{ margin:0; font-size:28px; line-height:1.15; }}
+    .hero p {{ margin:8px 0 0; color:var(--muted); max-width:760px; }}
+    .proof {{ display:grid; gap:10px; }}
+    .proof-row {{ display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid #edf0f4; }}
+    .proof-row:last-child {{ border-bottom:0; }}
+    .proof-row span:first-child {{ color:var(--muted); }}
+    .proof-row strong {{ text-align:right; }}
+    .showcase-grid {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }}
+    .usecase {{ background:#fff; border:1px solid var(--line); border-radius:8px; padding:16px; min-height:150px; }}
+    .usecase h3 {{ margin:10px 0 8px; font-size:15px; }}
+    .usecase p {{ margin:0; color:var(--muted); }}
+    .check {{ width:28px; height:28px; border-radius:8px; display:grid; place-items:center; background:#dcfce7; color:#166534; font-weight:800; }}
+    .architecture {{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }}
+    .step {{ background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px; position:relative; min-height:106px; }}
+    .step:not(:last-child)::after {{ content:""; position:absolute; right:-10px; top:50%; width:10px; height:1px; background:#aab4c3; }}
+    .step-kicker {{ color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.08em; }}
+    .step strong {{ display:block; margin-top:6px; }}
+    .services {{ display:flex; flex-wrap:wrap; gap:8px; }}
+    .chip {{ display:inline-flex; align-items:center; border:1px solid var(--line); background:#fff; border-radius:999px; padding:6px 10px; color:#334155; }}
     .search {{ display:flex; gap:8px; min-width:320px; }}
     .search input {{ width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px; }}
     .grid {{ display:grid; grid-template-columns:320px 1fr; gap:16px; align-items:start; }}
@@ -309,7 +378,8 @@ def _dashboard_html() -> str:
     @media (max-width: 920px) {{
       .shell {{ grid-template-columns:1fr; }}
       .sidebar {{ position:static; }}
-      .metrics, .grid, .form {{ grid-template-columns:1fr; }}
+      .metrics, .grid, .form, .hero, .showcase-grid, .architecture {{ grid-template-columns:1fr; }}
+      .step:not(:last-child)::after {{ display:none; }}
       .topbar {{ height:auto; align-items:flex-start; flex-direction:column; padding:18px; }}
       .content {{ padding:18px; }}
       .search, .admin input {{ min-width:0; width:100%; }}
@@ -343,6 +413,55 @@ def _dashboard_html() -> str:
     }}
     function Metric({{label, value}}) {{
       return e("div", {{className:"metric"}}, e("div", {{className:"label"}}, label), e("div", {{className:"value"}}, value));
+    }}
+    function OverviewView({{status, briefs, goHistory}}) {{
+      const agent = status?.agent || {{}};
+      const totals = status?.totals || {{briefs:briefs.length, priorities:0, followUps:0, headlines:0}};
+      const latest = status?.latest;
+      const fit = status?.challengeFit || [];
+      const services = status?.services || [];
+      return e(React.Fragment, null,
+        e("div", {{className:"hero"}},
+          e("div", null,
+            e("span", {{className:"badge"}}, "Always-on AWS agent"),
+            e("h2", null, "DayBreak prepares the morning before the user opens anything."),
+            e("p", null, "The agent wakes on schedule, gathers real inputs, reasons with Bedrock Nova, sends the brief by email, and stores every result for this dashboard.")
+          ),
+          e("div", {{className:"proof"}},
+            e("div", {{className:"proof-row"}}, e("span", null, "Trigger"), e("strong", null, agent.trigger || "EventBridge Scheduler")),
+            e("div", {{className:"proof-row"}}, e("span", null, "Schedule"), e("strong", null, (agent.scheduleExpression || "cron(0 6 * * ? *)") + " / " + (agent.timezone || "America/New_York"))),
+            e("div", {{className:"proof-row"}}, e("span", null, "Runtime"), e("strong", null, agent.runtime || "Lambda + Bedrock")),
+            e("div", {{className:"proof-row"}}, e("span", null, "Reports back"), e("strong", null, agent.delivery || "SES + DynamoDB"))
+          )
+        ),
+        e("div", {{className:"metrics"}},
+          e(Metric, {{label:"Generated briefs", value:totals.briefs || 0}}),
+          e(Metric, {{label:"Priorities found", value:totals.priorities || 0}}),
+          e(Metric, {{label:"Nudges drafted", value:totals.followUps || 0}}),
+          e(Metric, {{label:"Latest run", value:latest?.date || "Waiting"}})
+        ),
+        e("div", {{className:"showcase-grid"}}, fit.map((item, i) => e("div", {{className:"usecase", key:i}},
+          e("div", {{className:"check"}}, "✓"),
+          e("h3", null, item.label),
+          e("p", null, item.detail)
+        ))),
+        e("div", {{className:"panel"}},
+          e("h2", null, "Autonomous Flow"),
+          e("div", {{className:"architecture"}},
+            [
+              ["1", "EventBridge", "Wakes DayBreak every morning at 6 AM."],
+              ["2", "Lambda", "Loads config and runs the agent orchestration."],
+              ["3", "Tools", "Reads tasks, stale threads, weather, and feeds."],
+              ["4", "Bedrock Nova", "Chooses tools and composes structured JSON."],
+              ["5", "SES + DynamoDB", "Emails the brief and stores history."]
+            ].map((s) => e("div", {{className:"step", key:s[0]}}, e("div", {{className:"step-kicker"}}, "Step " + s[0]), e("strong", null, s[1]), e("p", {{className:"muted"}}, s[2])))
+          )
+        ),
+        e("div", {{className:"panel"}},
+          e("div", {{className:"toolbar"}}, e("h2", null, "AWS Free Tier Services"), e("button", {{onClick:goHistory}}, "View generated briefs")),
+          e("div", {{className:"services"}}, services.map((svc, i) => e("span", {{className:"chip", key:i}}, svc)))
+        )
+      );
     }}
     function BriefDetail({{record}}) {{
       if (!record) return e("div", {{className:"empty"}}, "No briefs yet. The scheduled agent will populate this view after the first run.");
@@ -432,14 +551,19 @@ def _dashboard_html() -> str:
       );
     }}
     function App() {{
-      const [tab, setTab] = React.useState("history");
+      const [tab, setTab] = React.useState("overview");
       const [briefs, setBriefs] = React.useState([]);
+      const [status, setStatus] = React.useState(null);
       const [selected, setSelected] = React.useState("");
       const [query, setQuery] = React.useState("");
       const [token, setToken] = React.useState(api.token());
       const refresh = React.useCallback(async () => {{
-        const data = await api.request("/api/briefs?limit=30&q=" + encodeURIComponent(query));
+        const [data, statusData] = await Promise.all([
+          api.request("/api/briefs?limit=30&q=" + encodeURIComponent(query)),
+          api.request("/api/status")
+        ]);
         setBriefs(data.items || []);
+        setStatus(statusData);
         if (!selected && data.items?.[0]) setSelected(data.items[0].date);
       }}, [query, selected]);
       React.useEffect(() => {{ refresh(); }}, [refresh]);
@@ -447,15 +571,16 @@ def _dashboard_html() -> str:
       return e("div", {{className:"shell"}},
         e("aside", {{className:"sidebar"}},
           e("div", {{className:"brand"}}, e("div", {{className:"brandmark"}}, "D"), e("div", null, "DayBreak", e("div", {{className:"muted"}}, "Agent Console"))),
-          e("nav", {{className:"nav"}}, ["history","settings","run"].map(t => e("button", {{key:t, className:"ghost " + (tab === t ? "active" : ""), onClick:()=>setTab(t)}}, t === "history" ? "Brief history" : t === "settings" ? "Settings" : "Test run"))),
+          e("nav", {{className:"nav"}}, ["overview","history","settings","run"].map(t => e("button", {{key:t, className:"ghost " + (tab === t ? "active" : ""), onClick:()=>setTab(t)}}, t === "overview" ? "Overview" : t === "history" ? "Brief history" : t === "settings" ? "Settings" : "Test run"))),
           e("div", {{className:"sidefoot"}}, "EventBridge Scheduler -> Lambda -> Bedrock -> SES")
         ),
         e("main", {{className:"main"}},
           e("header", {{className:"topbar"}},
-            e("div", {{className:"title"}}, e("h1", null, tab === "history" ? "Brief history" : tab === "settings" ? "Runtime settings" : "Manual test run"), e("p", null, "Autonomous morning brief for " + (window.DAYBREAK.userName || "you"))),
+            e("div", {{className:"title"}}, e("h1", null, tab === "overview" ? "Challenge showcase" : tab === "history" ? "Brief history" : tab === "settings" ? "Runtime settings" : "Manual test run"), e("p", null, "Autonomous morning brief for " + (window.DAYBREAK.userName || "you"))),
             e("div", {{className:"admin"}}, e("input", {{type:"password", value:token, onChange:ev=>setToken(ev.target.value), placeholder: window.DAYBREAK.adminEnabled ? "Admin token" : "Admin disabled"}}), e("button", {{onClick:saveToken}}, "Use token"))
           ),
           e("section", {{className:"content"}},
+            tab === "overview" && e(OverviewView, {{status, briefs, goHistory:()=>setTab("history")}}),
             tab === "history" && e(HistoryView, {{briefs, selected, setSelected, query, setQuery, refresh}}),
             tab === "settings" && e(SettingsView),
             tab === "run" && e(RunView)
@@ -478,6 +603,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     try:
         if path == "/api/briefs":
             return _api_briefs(event)
+        if path == "/api/status":
+            return _api_status(event)
         if path == "/api/config":
             return _api_config(event)
         if path == "/api/run":

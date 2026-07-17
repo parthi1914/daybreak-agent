@@ -188,6 +188,31 @@ def test_viewer_config_disabled_without_admin_token(monkeypatch):
     assert "admin_disabled" in resp["body"]
 
 
+def test_viewer_status_summarizes_challenge_fit(monkeypatch):
+    item = {
+        "date": "2026-07-18",
+        "brief": {
+            "greeting": "hi",
+            "priorities": [{"title": "A"}, {"title": "B"}],
+            "follow_ups": [{"subject": "S", "draft": "D"}],
+            "headlines": ["H"],
+        },
+    }
+    monkeypatch.setattr("agent.viewer._dynamodb", _FakeDynamo([item]))
+    event = {
+        "rawPath": "/api/status",
+        "requestContext": {"http": {"method": "GET"}},
+        "headers": {},
+    }
+
+    resp = viewer_handler(event, None)
+
+    assert resp["statusCode"] == 200
+    assert "Morning brief agent" in resp["body"]
+    assert '"briefs": 1' in resp["body"]
+    assert '"followUps": 1' in resp["body"]
+
+
 def test_compose_brief_keeps_tool_config_on_final_turn(monkeypatch):
     converse = MagicMock(side_effect=[
         {

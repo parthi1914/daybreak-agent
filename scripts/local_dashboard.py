@@ -136,6 +136,9 @@ viewer._ssm = LocalSsm()
 viewer._lambda = LocalLambda()
 viewer._ADMIN_TOKEN = os.environ["DASHBOARD_ADMIN_TOKEN"]
 viewer._NAME = os.environ["USER_NAME"]
+viewer._SCHEDULE_NAME = "daybreak-morning"
+viewer._SCHEDULE_CRON = "cron(0 6 * * ? *)"
+viewer._SCHEDULE_TIMEZONE = "America/New_York"
 
 
 class Handler(BaseHTTPRequestHandler):
