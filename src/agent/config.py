@@ -51,6 +51,9 @@ class RuntimeConfig:
     briefs_table: str
     config_param: str
     metrics_namespace: str
+    delivery_provider: str = "ses"
+    gmail_username: str = ""
+    gmail_app_password: str = ""
     run_date: str | None = None
     max_agent_turns: int = 6
     http_timeout_seconds: int = 6
@@ -100,13 +103,17 @@ def _build_profile(doc: dict[str, Any]) -> UserProfile:
 
 def load_config() -> RuntimeConfig:
     """Assemble the full runtime configuration for one invocation."""
-    profile = _build_profile(_load_profile_document())
+    doc = _load_profile_document()
+    profile = _build_profile(doc)
     return RuntimeConfig(
         model_id=_env("MODEL_ID", "us.amazon.nova-lite-v1:0"),
         tasks_table=_env("TASKS_TABLE", "daybreak-tasks"),
         briefs_table=_env("BRIEFS_TABLE", "daybreak-briefs"),
         config_param=_env("CONFIG_PARAM", "/daybreak/config"),
         metrics_namespace=_env("POWERTOOLS_METRICS_NAMESPACE", "DayBreak"),
+        delivery_provider=str(doc.get("delivery_provider") or _env("DELIVERY_PROVIDER", "ses")).lower(),
+        gmail_username=str(doc.get("gmail_username") or _env("GMAIL_USERNAME", "")),
+        gmail_app_password=_env("GMAIL_APP_PASSWORD", ""),
         max_agent_turns=int(_env("MAX_AGENT_TURNS", "6")),
         http_timeout_seconds=int(_env("HTTP_TIMEOUT_SECONDS", "6")),
         profile=profile,

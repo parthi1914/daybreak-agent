@@ -86,6 +86,23 @@ Optional dashboard controls:
 - Set `DashboardAdminToken` during deploy to enable settings updates and queued test runs from the dashboard.
 - Leave `DashboardAdminToken` blank to keep write actions disabled for a public showcase link.
 
+### Gmail delivery for demos
+
+SES remains the default delivery provider. For a Gmail-based demo, create a Google App Password for the Gmail account and redeploy with:
+
+```bash
+sam deploy \
+  --parameter-overrides \
+    SenderEmail=you@gmail.com \
+    RecipientEmail=you@gmail.com \
+    AlarmEmail=you@gmail.com \
+    DeliveryProvider=gmail \
+    GmailUsername=you@gmail.com \
+    GmailAppPassword="your-16-character-app-password"
+```
+
+The app password is passed to Lambda as a NoEcho CloudFormation parameter. Do not put it in source control.
+
 ## Develop and test locally
 
 ```bash

@@ -51,6 +51,20 @@ Parameters:
     Default: ""
     NoEcho: true
     Description: Optional token required for dashboard settings updates and manual test runs. Leave blank to disable write actions.
+  DeliveryProvider:
+    Type: String
+    Default: ses
+    AllowedValues: [ses, gmail]
+    Description: Email provider for brief delivery. Use ses for AWS SES or gmail for Gmail SMTP demo delivery.
+  GmailUsername:
+    Type: String
+    Default: ""
+    Description: Gmail address used for SMTP delivery when DeliveryProvider=gmail.
+  GmailAppPassword:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: Gmail app password used for SMTP delivery when DeliveryProvider=gmail.
 
 Globals:
   Function:
@@ -129,6 +143,8 @@ Resources:
           "recipient_email": "${RecipientEmail}",
           "sender_email": "${SenderEmail}",
           "news_feed_url": "${NewsFeedUrl}",
+          "delivery_provider": "${DeliveryProvider}",
+          "gmail_username": "${GmailUsername}",
           "stale_after_days": ${StaleAfterDays},
           "max_tasks_in_brief": 6,
           "tone": "warm, concise, and encouraging"
@@ -178,6 +194,9 @@ Resources:
           BRIEFS_TABLE: !Ref BriefsTable
           IDEMPOTENCY_TABLE: !Ref IdempotencyTable
           CONFIG_PARAM: /daybreak/config
+          DELIVERY_PROVIDER: !Ref DeliveryProvider
+          GMAIL_USERNAME: !Ref GmailUsername
+          GMAIL_APP_PASSWORD: !Ref GmailAppPassword
       Policies:
         - Statement:
             - Sid: BedrockInvokeNova

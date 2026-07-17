@@ -6,6 +6,9 @@ and it's a durable audit trail of what the agent decided each morning.
 from __future__ import annotations
 
 import datetime as dt
+import smtplib
+from email.message import EmailMessage
+from email.utils import make_msgid
 from typing import Any
 
 import boto3
@@ -24,6 +27,13 @@ _BRIEF_TTL_DAYS = 120
 
 
 def send_email(cfg: RuntimeConfig, brief: Brief) -> str:
+    """Send the brief through the configured provider."""
+    if cfg.delivery_provider == "gmail":
+        return _send_gmail(cfg, brief)
+    return _send_ses(cfg, brief)
+
+
+def _send_ses(cfg: RuntimeConfig, brief: Brief) -> str:
     """Send the brief via SES. Returns the SES message id."""
     p = cfg.profile
     resp = _ses.send_email(
@@ -38,7 +48,31 @@ def send_email(cfg: RuntimeConfig, brief: Brief) -> str:
         },
     )
     message_id = resp["MessageId"]
-    logger.info("Brief emailed", extra={"message_id": message_id, "to": p.recipient_email})
+    logger.info("Brief emailed", extra={"provider": "ses", "message_id": message_id, "to": p.recipient_email})
+    return message_id
+
+
+def _send_gmail(cfg: RuntimeConfig, brief: Brief) -> str:
+    """Send the brief via Gmail SMTP using an app password."""
+    p = cfg.profile
+    username = cfg.gmail_username or p.sender_email
+    if not username or not cfg.gmail_app_password:
+        raise RuntimeError("Gmail delivery requires GMAIL_USERNAME and GMAIL_APP_PASSWORD")
+
+    message_id = make_msgid(domain="daybreak-agent.local")
+    msg = EmailMessage()
+    msg["Subject"] = subject_line(brief)
+    msg["From"] = username
+    msg["To"] = p.recipient_email
+    msg["Message-ID"] = message_id
+    msg.set_content(render_text(brief, p.name))
+    msg.add_alternative(render_html(brief, p.name), subtype="html")
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as smtp:
+        smtp.login(username, cfg.gmail_app_password)
+        smtp.send_message(msg)
+
+    logger.info("Brief emailed", extra={"provider": "gmail", "message_id": message_id, "to": p.recipient_email})
     return message_id
 
 

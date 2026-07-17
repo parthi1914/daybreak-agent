@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from agent.agent_core import _extract_json  # noqa: E402
 from agent.agent_core import compose_brief  # noqa: E402
 from agent.config import RuntimeConfig, UserProfile  # noqa: E402
+from agent.delivery import send_email  # noqa: E402
 from agent.models import Brief  # noqa: E402
 from agent.renderer import render_html, render_text, subject_line  # noqa: E402
 from agent.tools import get_stale_followups, get_tasks  # noqa: E402
@@ -240,3 +241,42 @@ def test_compose_brief_keeps_tool_config_on_final_turn(monkeypatch):
 
     assert brief.greeting == "hi"
     assert converse.call_args_list[-1].kwargs["toolConfig"]["tools"]
+
+
+def test_send_email_can_use_gmail_provider(monkeypatch):
+    sent = {}
+
+    class FakeSmtp:
+        def __init__(self, host, port, timeout):
+            sent["connect"] = (host, port, timeout)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def login(self, username, password):
+            sent["login"] = (username, password)
+
+        def send_message(self, msg):
+            sent["message"] = msg
+
+    monkeypatch.setattr("agent.delivery.smtplib.SMTP_SSL", FakeSmtp)
+    cfg = _cfg()
+    cfg = RuntimeConfig(
+        **{
+            **cfg.__dict__,
+            "delivery_provider": "gmail",
+            "gmail_username": "daybreak.sender@gmail.com",
+            "gmail_app_password": "app-pass",
+        }
+    )
+    brief = Brief.from_model_json("2026-07-18", {"greeting": "hi"})
+
+    message_id = send_email(cfg, brief)
+
+    assert message_id
+    assert sent["connect"] == ("smtp.gmail.com", 465, 15)
+    assert sent["login"] == ("daybreak.sender@gmail.com", "app-pass")
+    assert sent["message"]["To"] == "sam@example.com"
